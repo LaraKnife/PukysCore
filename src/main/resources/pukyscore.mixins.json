@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.pukyscraft.core.auth.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [],
+  "client": [],
+  "server": [
+    "ServerLoginPacketListenerImplMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

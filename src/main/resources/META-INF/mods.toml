@@ -1,0 +1,11 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All rights reserved"
+# Asegúrate de que no haya líneas mal comentadas o variables rotas arriba de esto
+
+[[mods]]
+modId="pukyscore" # <-- DEBE SER EXACTAMENTE IGUAL AL DEL @Mod
+version="1.0.0"
+displayName="PukysCore"
+authors="LaraKnife"
+description="Core mod para PukysCraft"

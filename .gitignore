@@ -1,0 +1,39 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+!gradle/wrapper/gradle-wrapper.jar
+
+# other
+eclipse
+run
+
+# Files from Forge MDK
+forge*changelog.txt
+
+# Entorno de ejecución de Forge
+run/
+logs/
+debug.log
+crash-reports/
+
+# Archivos compilados
+*.class
+
+# Otros archivos de SO
+.DS_Store
+Thumbs.db
