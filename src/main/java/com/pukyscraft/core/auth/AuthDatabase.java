@@ -140,4 +140,20 @@ public class AuthDatabase {
         }
         return false;
     }
+
+    // Metodo síncrono para usar ÚNICAMENTE cuando el servidor se apaga
+    public static void saveSync() {
+        synchronized (FILE_LOCK) {
+            try {
+                if (!FILE.getParentFile().exists()) FILE.getParentFile().mkdirs();
+                try (FileWriter writer = new FileWriter(FILE)) {
+                    GSON.toJson(users, writer);
+                    writer.flush();
+                }
+                System.out.println("[PukysCore Auth] Base de datos de usuarios guardada síncronamente.");
+            } catch (Exception e) {
+                System.err.println("[PukysCore Auth] Error crítico al guardar database síncrona: " + e.getMessage());
+            }
+        }
+    }
 }

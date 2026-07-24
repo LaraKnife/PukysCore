@@ -19,6 +19,11 @@ public class SecurityManager {
         return true;
     }
 
+    public static boolean isPremium(net.minecraft.server.level.ServerPlayer player) {
+        java.util.UUID offlineUUID = java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + player.getScoreboardName()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return !player.getUUID().equals(offlineUUID);
+    }
+
     public static void registerFailedAttempt(String ip) {
         int fails = failedAttempts.getOrDefault(ip, 0) + 1;
         int maxAttempts = PukysConfig.auth_maxFailedAttempts.get();

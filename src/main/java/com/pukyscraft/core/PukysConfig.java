@@ -19,6 +19,7 @@ public class PukysConfig {
 
     // ======== VALORES DE CONFIGURACIÓN TOML ========
     public static ForgeConfigSpec.IntValue auth_sessionTimeoutMinutes;
+    public static ForgeConfigSpec.IntValue auth_reconnectWindowMinutes;
     public static ForgeConfigSpec.IntValue auth_minPasswordLength;
     public static ForgeConfigSpec.IntValue auth_maxPasswordLength;
     public static ForgeConfigSpec.IntValue auth_maxAccountsPerIp;
@@ -41,6 +42,10 @@ public class PukysConfig {
         BUILDER.comment("=== CONFIGURACION DE AUTENTICACION ===").push("auth");
         auth_sessionTimeoutMinutes = BUILDER.comment("Tiempo en minutos antes de requerir login nuevamente.")
                 .defineInRange("sessionTimeoutMinutes", 60, 1, Integer.MAX_VALUE);
+        auth_reconnectWindowMinutes = BUILDER.comment(
+                "Minutos en los que un jugador puede reconectarse sin usar /login si su IP es exactamente la misma.",
+                "Pon 0 para desactivar esta función."
+        ).defineInRange("reconnectWindowMinutes", 10, 0, 1440);
         auth_minPasswordLength = BUILDER.comment("Longitud minima de la contraseña")
                 .defineInRange("minPasswordLength", 6, 1, 64);
         auth_maxPasswordLength = BUILDER.comment("Longitud maxima de la contraseña")

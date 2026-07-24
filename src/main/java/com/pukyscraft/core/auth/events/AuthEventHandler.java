@@ -45,8 +45,28 @@ public class AuthEventHandler {
                 player.connection.disconnect(Component.literal("§cTu IP está baneada temporalmente por intentos fallidos."));
                 return;
             }
+
             if (!AuthDatabase.isRegistered(player.getUUID()) && AuthDatabase.getAccountsCountForIp(ip) >= PukysConfig.auth_maxAccountsPerIp.get()) {
                 player.connection.disconnect(Component.literal("§cLímite de cuentas por IP superado en esta red."));
+                return;
+            }
+
+            // Reconect
+            if (AuthSessionManager.tryResumeSession(player, ip)) {
+                player.sendSystemMessage(Component.literal("§a§l[PukysCore] §fSesión restaurada automáticamente."));
+                return;
+            }
+
+            if (SecurityManager.isPremium(player)) {
+                boolean isFirstTime = !AuthDatabase.isRegistered(player.getUUID());
+
+                if (isFirstTime) {
+                    // Lo registramos silenciosamente con una contraseña aleatoria para saber que ya entró antes y poder contar sus cuentas por IP
+                    AuthDatabase.registerUser(player.getUUID(), player.getScoreboardName(), java.util.UUID.randomUUID().toString(), ip);
+                }
+
+                AuthSessionManager.onPremiumJoin(player, isFirstTime);
+                player.sendSystemMessage(Component.literal("§a§l[PukysCore] §fAutenticado automáticamente con cuenta Premium."));
                 return;
             }
 
@@ -67,7 +87,9 @@ public class AuthEventHandler {
 
     @SubscribeEvent
     public static void onPlayerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
-        AuthSessionManager.removePlayer(event.getEntity().getUUID());
+        if (event.getEntity() instanceof ServerPlayer player) {
+            AuthSessionManager.onPlayerLeave(player);
+        }
     }
 
     // Intento de deshabilitar el salto del jugador (puede fallar, pero ya está parcheado mediante efectos)
@@ -105,15 +127,6 @@ public class AuthEventHandler {
                     player.connection.disconnect(Component.literal("§cHas tardado demasiado en iniciar sesión."));
                     return;
                 }
-
-                /*
-                LocationManager.Location join = LocationManager.getJoin();
-                if (join != null && player.position().distanceToSqr(join.x, join.y, join.z) > 0.05) {
-                    LocationManager.teleportTo(player, join);
-                    // Capa de protección extra para que el jugador no pueda moverse
-                    player.setDeltaMovement(0, 0, 0);
-                }
-                 */
             }
         }
     }

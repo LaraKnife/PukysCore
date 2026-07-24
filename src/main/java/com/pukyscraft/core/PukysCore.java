@@ -53,9 +53,9 @@ public class PukysCore {
         // AL APAGAR EL SERVIDOR SE DEBE GUARDAR EN EL HILO PRINCIPAL
         // Para asegurar que la JVM no se cierre antes de escribir en disco.
 
-        AuthDatabase.save(); // Llama al método de guardado
+        AuthDatabase.saveSync();
 
-        // Ejecución síncrona improvisada (Idealmente, crea un método saveRegionsSync() en tus managers)
+        // Ejecución síncrona improvisada
         Runnable saveRegionsTask = () -> {
             try {
                 java.io.File regionsFile = net.minecraftforge.fml.loading.FMLPaths.GAMEDIR.get().resolve("config/PukysCore/database/regions.json").toFile();
