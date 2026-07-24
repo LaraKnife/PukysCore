@@ -101,10 +101,10 @@ public class RegionManager {
     private static void indexRegionToMap(Region region, Map<String, Map<Long, List<Region>>> targetMap) {
         Map<Long, List<Region>> dimMap = targetMap.computeIfAbsent(region.dimension, k -> new ConcurrentHashMap<>());
 
-        int minChunkX = (region.center.getX() - region.radius) >> 4;
-        int maxChunkX = (region.center.getX() + region.radius) >> 4;
-        int minChunkZ = (region.center.getZ() - region.radius) >> 4;
-        int maxChunkZ = (region.center.getZ() + region.radius) >> 4;
+        int minChunkX = (region.center.getX() - region.radiusX) >> 4;
+        int maxChunkX = (region.center.getX() + region.radiusX) >> 4;
+        int minChunkZ = (region.center.getZ() - region.radiusZ) >> 4;
+        int maxChunkZ = (region.center.getZ() + region.radiusZ) >> 4;
 
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
@@ -113,6 +113,15 @@ public class RegionManager {
                 dimMap.computeIfAbsent(chunkKey, k -> new CopyOnWriteArrayList<>()).add(region);
             }
         }
+    }
+
+    public static boolean isAreaOverlapping(Region newRegion) {
+        for (Region existing : activeRegions) {
+            if (existing.overlaps(newRegion)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void indexRegion(Region region) {

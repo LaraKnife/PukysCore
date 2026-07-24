@@ -61,6 +61,10 @@ public class ProtectionCommands {
                         .requires(source -> source.hasPermission(0))
                         .executes(context -> showInfo(context.getSource()))
                 )
+                .then(Commands.literal("reload")
+                        .requires(requireAdmin)
+                        .executes(context -> reloadConfig(context.getSource()))
+                )
         );
     }
 
@@ -71,6 +75,7 @@ public class ProtectionCommands {
         source.sendSuccess(() -> Component.literal("§b/pc info §7- Ver datos de la zona actual."), false);
         if (source.hasPermission(2)) {
             source.sendSuccess(() -> Component.literal("§c/pc give <jugador> <tipo> §7- Dar bloque de protección."), false);
+            source.sendSuccess(() -> Component.literal("§c/pc reload §7- Recargar configuraciones y bloques."), false);
         }
         return 1;
     }
@@ -85,19 +90,50 @@ public class ProtectionCommands {
         String[] parts = protType.material.split(":");
         ResourceLocation resource = parts.length == 2 ? new ResourceLocation(parts[0], parts[1]) : new ResourceLocation("minecraft", protType.material);
 
-        ItemStack protectionStone = new ItemStack(ForgeRegistries.ITEMS.getValue(resource));
-        protectionStone.setHoverName(Component.literal(protType.displayName));
+        ItemStack protectionBlock = new ItemStack(ForgeRegistries.ITEMS.getValue(resource));
+        String formattedName = protType.displayName.replace("&", "§");
+        protectionBlock.setHoverName(Component.literal(formattedName));
 
-        CompoundTag nbt = protectionStone.getOrCreateTag();
+        CompoundTag nbt = protectionBlock.getOrCreateTag();
         nbt.putString("PukysProtectionType", typeId.toLowerCase());
-        protectionStone.setTag(nbt);
 
-        if (!target.getInventory().add(protectionStone)) {
-            target.drop(protectionStone, false);
+        CompoundTag displayTag = nbt.contains("display") ? nbt.getCompound("display") : new CompoundTag();
+        net.minecraft.nbt.ListTag loreList = new net.minecraft.nbt.ListTag();
+        for (String line : protType.lore) {
+            String jsonLore = Component.Serializer.toJson(Component.literal(line.replace("&", "§")));
+            loreList.add(net.minecraft.nbt.StringTag.valueOf(jsonLore));
+        }
+        displayTag.put("Lore", loreList);
+        nbt.put("display", displayTag);
+
+        if (protType.enchanted) {
+            net.minecraft.nbt.ListTag enchantments = new net.minecraft.nbt.ListTag();
+            enchantments.add(new CompoundTag());
+            nbt.put("Enchantments", enchantments);
+            nbt.putInt("HideFlags", 1);
+        }
+
+        protectionBlock.setTag(nbt);
+
+        if (!target.getInventory().add(protectionBlock)) {
+            target.drop(protectionBlock, false);
         }
 
         source.sendSuccess(() -> Component.literal("§a[PukysCore] Bloque '" + typeId + "' entregado a " + target.getName().getString()), true);
         return 1;
+    }
+
+    private static int reloadConfig(CommandSourceStack source) {
+        try {
+            PukysConfig.loadProtections();
+
+            source.sendSuccess(() -> Component.literal("§a[PukysCore] ¡Configuración y bloques de protección recargados con éxito!"), true);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("§c[PukysCore] Ocurrió un error al recargar. Revisa la consola del servidor."));
+            e.printStackTrace();
+            return 0;
+        }
     }
 
     private static int manageMember(CommandSourceStack source, ServerPlayer target, boolean isAdding) {
@@ -150,7 +186,7 @@ public class ProtectionCommands {
                 .map(com.mojang.authlib.GameProfile::getName).orElse("Desconocido");
 
         source.sendSuccess(() -> Component.literal("§7Dueño: §a" + ownerName), false);
-        source.sendSuccess(() -> Component.literal("§7Tipo: §f" + region.type.toUpperCase() + " §7(Radio: §f" + region.radius + "§7)"), false);
+        source.sendSuccess(() -> Component.literal("§7Tipo: §f" + region.type.toUpperCase()), false);
 
         if (region.members.isEmpty()) {
             source.sendSuccess(() -> Component.literal("§7Miembros: §fNinguno"), false);

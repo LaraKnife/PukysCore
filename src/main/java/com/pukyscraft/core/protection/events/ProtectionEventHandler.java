@@ -105,14 +105,23 @@ public class ProtectionEventHandler {
                     if (protType != null) {
                         String[] parts = protType.material.split(":");
                         ResourceLocation res = parts.length == 2 ? new ResourceLocation(parts[0], parts[1]) : new ResourceLocation("minecraft", protType.material);
-                        ItemStack stone = new ItemStack(ForgeRegistries.ITEMS.getValue(res));
+                        ItemStack protectionBlock = new ItemStack(ForgeRegistries.ITEMS.getValue(res));
 
-                        stone.setHoverName(Component.literal(protType.displayName));
-                        CompoundTag nbt = stone.getOrCreateTag();
+                        protectionBlock.setHoverName(Component.literal(protType.displayName));
+                        CompoundTag nbt = protectionBlock.getOrCreateTag();
                         nbt.putString("PukysProtectionType", region.type);
-                        stone.setTag(nbt);
 
-                        if (!player.getInventory().add(stone)) player.drop(stone, false);
+                        if (protType.enchanted) {
+                            net.minecraft.nbt.ListTag enchantments = new net.minecraft.nbt.ListTag();
+                            enchantments.add(new CompoundTag());
+                            nbt.put("Enchantments", enchantments);
+                            nbt.putInt("HideFlags", 1);
+                        }
+                        protectionBlock.setTag(nbt);
+
+                        if (!player.getInventory().add(protectionBlock)) {
+                            player.drop(protectionBlock, false);
+                        }
                     }
                     player.sendSystemMessage(Component.literal("§aZona desprotegida. Bloque recuperado."));
                 } else {

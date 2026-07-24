@@ -1,5 +1,8 @@
 package com.pukyscraft.core;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.server.permission.PermissionAPI;
@@ -7,10 +10,11 @@ import com.pukyscraft.core.permissions.PukysPermissions;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 
 @Mod.EventBusSubscriber(modid = PukysCore.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class PukysConfig {
@@ -36,6 +40,7 @@ public class PukysConfig {
 
     // Permitir lectura/escritura segura durante recargas en vivo
     public static final Map<String, ProtectionBlock> protectionBlocks = new ConcurrentHashMap<>();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     static {
         // --- SECCIÓN AUTENTICACIÓN ---
@@ -65,50 +70,78 @@ public class PukysConfig {
         enableTpa = BUILDER.comment("Habilitar comando /tpa").define("enableTpa", true);
         enableTphere = BUILDER.comment("Habilitar comando /tphere").define("enableTphere", true);
         enableBack = BUILDER.comment("Habilitar comando /back").define("enableBack", true);
-        defaultMaxHomes = BUILDER.comment("Homes por defecto si LuckPerms no asigna un valor")
+        defaultMaxHomes = BUILDER.comment("Homes por defecto")
                 .defineInRange("defaultMaxHomes", 2, 0, 100);
-        BUILDER.pop();
-
-        // --- SECCIÓN PROTECCIONES ---
-        BUILDER.comment("=== CONFIGURACION DE PROTECCIONES ===").push("protections");
-        protectionBlocksList = BUILDER.comment(
-                "Configura los bloques de proteccion.",
-                "Formato: id,material,radio,tipo,nombre_mostrar"
-        ).defineList("blocks",
-                List.of(
-                        "lapislazuli,minecraft:lapis_block,10,basica,Protección Básica",
-                        "esmeralda,minecraft:emerald_block,20,media,Protección Media",
-                        "diamante,minecraft:diamond_block,30,avanzada,Protección Avanzada"
-                ),
-                obj -> obj instanceof String && ((String) obj).split(",").length >= 5
-        );
         BUILDER.pop();
 
         SERVER_SPEC = BUILDER.build();
     }
 
-    // Evento para recargar la configuración
-    @SubscribeEvent
-    public static void onConfigLoad(ModConfigEvent event) {
-        if (event.getConfig().getSpec() == SERVER_SPEC) {
-            loadProtections();
-        }
-    }
-
     public static void loadProtections() {
         protectionBlocks.clear();
-        for (String entry : protectionBlocksList.get()) {
-            String[] parts = entry.split(",", 5);
-            if (parts.length >= 5) {
-                try {
-                    String id = parts[0].trim().toLowerCase();
-                    protectionBlocks.put(id, new ProtectionBlock(parts[1].trim(), Integer.parseInt(parts[2].trim()), parts[3].trim(), parts[4].trim()));
-                } catch (NumberFormatException e) {
-                    System.err.println("[PukysCore] Error de sintaxis en el bloque de protección: " + entry);
+        File blocksDir = FMLPaths.CONFIGDIR.get().resolve("PukysCore/blocks").toFile();
+
+        if (!blocksDir.exists()) {
+            blocksDir.mkdirs();
+            createDefaultBlock(blocksDir);
+        }
+
+        File[] files = blocksDir.listFiles((dir, name) -> name.endsWith(".toml"));
+        if (files != null) {
+            for (File file : files) {
+                try (CommentedFileConfig config = CommentedFileConfig.builder(file).sync().build()) {
+                    config.load();
+                    String type = config.get("type");
+                    String alias = config.get("alias");
+                    String description = config.get("description");
+
+                    int xRadius = config.get("region.x_radius");
+                    int yRadius = config.get("region.y_radius");
+                    int zRadius = config.get("region.z_radius");
+
+                    String displayName = config.get("block_data.display_name");
+                    List<String> lore = config.get("block_data.lore");
+                    boolean enchanted = config.get("block_data.enchanted_effect");
+
+                    protectionBlocks.put(alias.toLowerCase(), new ProtectionBlock(alias, type, description, xRadius, yRadius, zRadius, displayName, lore, enchanted));
+                } catch (Exception e) {
+                    System.err.println("[PukysCore] Error leyendo archivo de bloque: " + file.getName());
                 }
             }
         }
-        System.out.println("[PukysCore] Cargados " + protectionBlocks.size() + " bloques de proteccion desde TOML.");
+        System.out.println("[PukysCore] Cargados " + protectionBlocks.size() + " bloques desde TOML.");
+    }
+
+    private static void createDefaultBlock(File folder) {
+        File file = new File(folder, "bronce.toml");
+        try (CommentedFileConfig config = CommentedFileConfig.builder(file).sync().build()) {
+            config.setComment("type", " Bloque de minecraft que se usará\n Usa el identificador del bloque (ej. minecraft:copper_ore)");
+            config.set("type", "minecraft:copper_ore");
+
+            config.setComment("alias", " El identificador que se usará en el comando /pc give");
+            config.set("alias", "bronce");
+
+            config.setComment("description", " Breve descripción de lo que es el bloque");
+            config.set("description", "10x10 block radius protection zone.");
+
+            config.setComment("region", " =======================================\n Configuracion de la Region\n =======================================");
+            config.set("region.x_radius", 10);
+            config.setComment("region.y_radius", " Pon -1 si quieres que proteja todas las alturas (del fondo al cielo)");
+            config.set("region.y_radius", 10);
+            config.set("region.z_radius", 10);
+
+            config.setComment("block_data", " =======================================\n Configuracion Visual del Bloque\n =======================================");
+            config.setComment("block_data.display_name", " Soporta codigos de color con &");
+            config.set("block_data.display_name", "&2&lProtección &5&lBronce");
+
+            config.setComment("block_data.lore", " Texto que aparece en el lore del bloque");
+            config.set("block_data.lore", List.of("", "&2&oProtege un área de &5&o&l10 bloques &n&oen todas las direcciones", ""));
+
+            config.setComment("block_data.enchanted_effect", " Define si el bloque tendrá el efecto visual de encantamiento");
+            config.set("block_data.enchanted_effect", true);
+
+            config.save();
+        }
     }
 
     public static int getMaxHomes(ServerPlayer player) {
@@ -117,13 +150,14 @@ public class PukysConfig {
     }
 
     public static class ProtectionBlock {
-        public String material;
-        public int radius;
-        public String type;
-        public String displayName;
+        public String alias; public String material; public String description;
+        public int radiusX; public int radiusY; public int radiusZ;
+        public String displayName; public List<String> lore; public boolean enchanted;
 
-        public ProtectionBlock(String material, int radius, String type, String displayName) {
-            this.material = material; this.radius = radius; this.type = type; this.displayName = displayName;
+        public ProtectionBlock(String alias, String material, String description, int radiusX, int radiusY, int radiusZ, String displayName, List<String> lore, boolean enchanted) {
+            this.alias = alias; this.material = material; this.description = description;
+            this.radiusX = radiusX; this.radiusY = radiusY; this.radiusZ = radiusZ;
+            this.displayName = displayName; this.lore = lore; this.enchanted = enchanted;
         }
     }
 }

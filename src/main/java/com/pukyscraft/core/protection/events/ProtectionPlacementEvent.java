@@ -28,25 +28,28 @@ public class ProtectionPlacementEvent {
             if (protType != null) {
                 String currentDimension = player.level().dimension().location().toString();
 
-                Region existingRegion = RegionManager.getRegionAt(event.getPos(), currentDimension);
-                if (existingRegion != null) {
-                    event.setCanceled(true);
-                    player.sendSystemMessage(Component.literal("§cNo puedes colocar una protección dentro de una zona ya protegida."));
-                    return;
-                }
-
+                // 1. Creamos la región temporalmente para comprobar colisiones
                 Region newRegion = new Region(
                         player.getUUID(),
                         event.getPos(),
-                        protType.radius,
+                        protType.radiusX,
+                        protType.radiusY,
+                        protType.radiusZ,
                         currentDimension,
                         typeId
                 );
 
+                // 2. Comprobamos si el área de esta nueva región choca con alguna existente
+                if (RegionManager.isAreaOverlapping(newRegion)) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cNo puedes colocar tu protección aquí, sus bordes chocan con otra zona cercana."));
+                    return;
+                }
+
                 RegionManager.addRegion(newRegion);
 
                 player.sendSystemMessage(Component.literal(
-                        "§a¡Has protegido esta zona! (" + protType.radius + " bloques a la redonda)."
+                        "§a¡Has protegido esta zona! (" + protType.radiusX + " X " + protType.radiusZ + " bloques a la redonda)."
                 ));
             }
         }

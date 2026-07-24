@@ -25,7 +25,7 @@ public class PukysCore {
         System.out.println("[PukysCore] Inicializando Core...");
         AuthDatabase.init();
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, PukysConfig.SERVER_SPEC, "PukysCore/config.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, PukysConfig.SERVER_SPEC, "PukysCore/config.toml");
 
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(AuthEventHandler.class);
