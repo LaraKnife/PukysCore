@@ -1,34 +1,76 @@
 package com.pukyscraft.core.protection.commands;
 
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.pukyscraft.core.PukysConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.pukyscraft.core.permissions.PukysPermissions;
+import com.pukyscraft.core.protection.PlayerSelection;
 import com.pukyscraft.core.protection.Region;
 import com.pukyscraft.core.protection.RegionManager;
+import com.pukyscraft.core.protection.WorldRegion;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.server.permission.PermissionAPI;
 
+import java.util.Map;
+
 public class ProtectionCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 
-        // Creamos la regla universal para tus comandos de admin
         java.util.function.Predicate<CommandSourceStack> requireAdmin = source -> {
             if (source.getEntity() instanceof ServerPlayer player) {
                 return PermissionAPI.getPermission(player, PukysPermissions.ADMIN_COMMANDS);
             }
-            return source.hasPermission(2); // Para la consola
+            return source.hasPermission(2);
         };
+
+        dispatcher.register(Commands.literal("pos1")
+                .requires(requireAdmin)
+                .executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    PlayerSelection sel = RegionManager.getSelection(player.getUUID());
+                    sel.pos1 = player.blockPosition();
+                    player.sendSystemMessage(Component.literal("§aPosición 1 establecida en tus pies."));
+                    return 1;
+                }));
+
+        dispatcher.register(Commands.literal("pos2")
+                .requires(requireAdmin)
+                .executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    PlayerSelection sel = RegionManager.getSelection(player.getUUID());
+                    sel.pos2 = player.blockPosition();
+                    player.sendSystemMessage(Component.literal("§dPosición 2 establecida en tus pies."));
+                    return 1;
+                }));
+
+        dispatcher.register(Commands.literal("extend")
+                .requires(requireAdmin)
+                .then(Commands.literal("vert").executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    PlayerSelection sel = RegionManager.getSelection(player.getUUID());
+                    if (!sel.isComplete()) {
+                        player.sendSystemMessage(Component.literal("§cDefine Pos1 y Pos2 primero."));
+                        return 0;
+                    }
+                    sel.extendVert(player.level());
+                    player.sendSystemMessage(Component.literal("§eSelección extendida verticalmente."));
+                    return 1;
+                }))
+        );
 
         dispatcher.register(Commands.literal("pc")
                 .executes(context -> showHelp(context.getSource()))
@@ -61,9 +103,103 @@ public class ProtectionCommands {
                         .requires(source -> source.hasPermission(0))
                         .executes(context -> showInfo(context.getSource()))
                 )
+                .then(Commands.literal("flag")
+                        .requires(source -> source.hasPermission(0))
+                        .then(Commands.argument("flagName", StringArgumentType.word())
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(context -> {
+                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                            String flagName = StringArgumentType.getString(context, "flagName");
+                                            boolean newVal = BoolArgumentType.getBool(context, "value");
+
+                                            Region region = RegionManager.getRegionAt(player.blockPosition(), player.level().dimension().location().toString());
+
+                                            if (region == null) {
+                                                player.sendSystemMessage(Component.literal("§cNo estás dentro de una zona de protección."));
+                                                return 0;
+                                            }
+
+                                            boolean hasAdmin = PermissionAPI.getPermission(player, PukysPermissions.ADMIN_COMMANDS);
+                                            if (!region.owner.equals(player.getUUID()) && !hasAdmin) {
+                                                player.sendSystemMessage(Component.literal("§cSolo el dueño puede modificar las flags de esta zona."));
+                                                return 0;
+                                            }
+
+                                            if (!Region.ALLOWED_PLAYER_FLAGS.contains(flagName)) {
+                                                player.sendSystemMessage(Component.literal("§cFlag no válida o restringida para jugadores."));
+                                                player.sendSystemMessage(Component.literal("§7Opciones: " + String.join(", ", Region.ALLOWED_PLAYER_FLAGS)));
+                                                return 0;
+                                            }
+
+                                            region.setFlag(flagName, newVal);
+                                            RegionManager.saveRegionsAsync();
+                                            player.sendSystemMessage(Component.literal("§aLa flag '" + flagName + "' se ha cambiado a " + newVal + " en tu zona."));
+                                            return 1;
+                                        })
+                                )
+                        )
+                )
                 .then(Commands.literal("reload")
                         .requires(requireAdmin)
                         .executes(context -> reloadConfig(context.getSource()))
+                )
+                .then(Commands.literal("region")
+                        .requires(requireAdmin)
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("name", StringArgumentType.word()).executes(context -> {
+                                    ServerPlayer player = context.getSource().getPlayerOrException();
+                                    String name = StringArgumentType.getString(context, "name");
+                                    PlayerSelection sel = RegionManager.getSelection(player.getUUID());
+
+                                    if (!sel.isComplete()) {
+                                        player.sendSystemMessage(Component.literal("§cSelecciona 2 puntos primero."));
+                                        return 0;
+                                    }
+
+                                    String dim = player.level().dimension().location().toString();
+                                    WorldRegion newRegion = new WorldRegion(name, dim, sel.pos1, sel.pos2);
+                                    RegionManager.saveWorldRegion(newRegion);
+                                    player.sendSystemMessage(Component.literal("§aRegión '" + name + "' guardada."));
+                                    return 1;
+                                }))
+                        )
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .then(Commands.literal("flags").executes(context -> {
+                                    String name = StringArgumentType.getString(context, "name");
+                                    sendInteractiveMenu(context.getSource().getPlayerOrException(), name);
+                                    return 1;
+                                }))
+                        )
+                )
+                .then(Commands.literal("flags")
+                        .requires(requireAdmin)
+                        .executes(context -> {
+                            ServerPlayer player = context.getSource().getPlayerOrException();
+                            String dim = player.level().dimension().location().toString();
+                            WorldRegion region = RegionManager.getWorldRegionAt(player.blockPosition(), dim);
+                            player.sendSystemMessage(Component.literal("§eEstás en la región: §6" + region.getName()));
+                            sendInteractiveMenu(player, region.getName());
+                            return 1;
+                        }))
+                .then(Commands.literal("_toggleflag")
+                        .requires(requireAdmin)
+                        .then(Commands.argument("region", StringArgumentType.word())
+                                .then(Commands.argument("flag", StringArgumentType.word())
+                                        .then(Commands.argument("value", BoolArgumentType.bool()).executes(context -> {
+                                            String regName = StringArgumentType.getString(context, "region");
+                                            String flagName = StringArgumentType.getString(context, "flag");
+                                            boolean newVal = BoolArgumentType.getBool(context, "value");
+
+                                            WorldRegion region = RegionManager.getWorldRegion(regName);
+                                            if (region != null) {
+                                                region.setFlag(flagName, newVal);
+                                                RegionManager.saveWorldRegion(region);
+                                                sendInteractiveMenu(context.getSource().getPlayerOrException(), regName);
+                                            }
+                                            return 1;
+                                        }))
+                                )
+                        )
                 )
         );
     }
@@ -146,7 +282,8 @@ public class ProtectionCommands {
             return 0;
         }
 
-        if (!region.owner.equals(owner.getUUID()) && !source.hasPermission(2)) {
+        boolean hasAdmin = PermissionAPI.getPermission(owner, PukysPermissions.ADMIN_COMMANDS);
+        if (!region.owner.equals(owner.getUUID()) && !hasAdmin) {
             source.sendFailure(Component.literal("§cSolo el dueño de esta zona puede modificar sus miembros."));
             return 0;
         }
@@ -181,11 +318,7 @@ public class ProtectionCommands {
         }
 
         source.sendSuccess(() -> Component.literal("§b=== Datos de la Protección ==="), false);
-
-        String ownerName = player.getServer().getProfileCache().get(region.owner)
-                .map(com.mojang.authlib.GameProfile::getName).orElse("Desconocido");
-
-        source.sendSuccess(() -> Component.literal("§7Dueño: §a" + ownerName), false);
+        source.sendSuccess(() -> Component.literal("§7Dueño: §a" + region.ownerName), false);
         source.sendSuccess(() -> Component.literal("§7Tipo: §f" + region.type.toUpperCase()), false);
 
         if (region.members.isEmpty()) {
@@ -200,5 +333,32 @@ public class ProtectionCommands {
             source.sendSuccess(() -> Component.literal("§7Miembros: §f" + String.join(", ", memberNames)), false);
         }
         return 1;
+    }
+
+    private static void sendInteractiveMenu(ServerPlayer player, String regionName) {
+        WorldRegion region = RegionManager.getWorldRegion(regionName);
+        if (region == null) {
+            player.sendSystemMessage(Component.literal("§cLa región global no existe."));
+            return;
+        }
+
+        player.sendSystemMessage(Component.literal("\n§8====== §bFlags: §3" + region.getName() + " §8======"));
+
+        for (Map.Entry<String, Boolean> entry : region.getFlags().entrySet()) {
+            String flag = entry.getKey();
+            boolean value = entry.getValue();
+
+            MutableComponent line = Component.literal("§7- §f" + flag + ": ");
+            boolean opposite = !value;
+            String color = value ? "§aALLOW" : "§cDENY";
+
+            MutableComponent button = Component.literal(color).withStyle(style -> style
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/pc _toggleflag " + regionName + " " + flag + " " + opposite))
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§eClick para cambiar a " + opposite)))
+            );
+
+            player.sendSystemMessage(line.append(button));
+        }
+        player.sendSystemMessage(Component.literal("§8=============================\n"));
     }
 }

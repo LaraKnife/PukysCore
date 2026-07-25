@@ -37,6 +37,7 @@ public class PukysCore {
     public void onServerStarting(ServerStartingEvent event) {
         System.out.println("[PukysCore] Cargando e indexando módulos...");
         PukysConfig.loadProtections();
+        RegionManager.init();
         RegionManager.loadRegions();
         TeleportManager.loadAll();
     }

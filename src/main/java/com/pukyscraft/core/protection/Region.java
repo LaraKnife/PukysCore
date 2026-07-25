@@ -1,12 +1,13 @@
 package com.pukyscraft.core.protection;
 
 import net.minecraft.core.BlockPos;
-import java.util.List;
-import java.util.UUID;
+
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Region {
     public UUID owner;
+    public String ownerName;
     public List<UUID> members = new CopyOnWriteArrayList<>();
     public BlockPos center;
     public int radiusX;
@@ -15,14 +16,37 @@ public class Region {
     public String dimension;
     public String type;
 
-    public Region(UUID owner, BlockPos center, int radiusX, int radiusY, int radiusZ, String dimension, String type) {
+    public static final List<String> ALLOWED_PLAYER_FLAGS = Arrays.asList(
+            "block_break", "block_place", "pvp", "explosion_damage", "block_interact", "entity_interact"
+    );
+
+    public Map<String, Boolean> flags = new HashMap<>();
+
+    public Region(UUID owner, String ownerName, BlockPos center, int radiusX, int radiusY, int radiusZ, String dimension, String type) {
         this.owner = owner;
+        this.ownerName = ownerName;
         this.center = center;
         this.radiusX = radiusX;
         this.radiusY = radiusY;
         this.radiusZ = radiusZ;
         this.dimension = dimension;
         this.type = type;
+
+        // Flags por defecto para una nueva zona de jugador
+        this.flags.put("block_break", false);
+        this.flags.put("block_place", false);
+        this.flags.put("pvp", false);
+        this.flags.put("explosion_damage", false);
+        this.flags.put("block_interact", false);
+        this.flags.put("entity_interact", false);
+    }
+
+    public boolean getFlag(String flag) {
+        return this.flags.getOrDefault(flag, false);
+    }
+
+    public void setFlag(String flag, boolean value) {
+        this.flags.put(flag, value);
     }
 
     public boolean contains(BlockPos pos, String checkDimension) {
