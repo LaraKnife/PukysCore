@@ -17,7 +17,7 @@ public class Region {
     public String type;
 
     public static final List<String> ALLOWED_PLAYER_FLAGS = Arrays.asList(
-            "block_break", "block_place", "pvp", "explosion_damage", "block_interact", "entity_interact"
+            "pvp", "block_interact", "entity_interact", "chest_access", "door_interact"
     );
 
     public Map<String, Boolean> flags = new HashMap<>();
@@ -32,13 +32,12 @@ public class Region {
         this.dimension = dimension;
         this.type = type;
 
-        // Flags por defecto para una nueva zona de jugador
-        this.flags.put("block_break", false);
-        this.flags.put("block_place", false);
+        // Flags editables por el jugador y sus valores por defecto
         this.flags.put("pvp", false);
-        this.flags.put("explosion_damage", false);
         this.flags.put("block_interact", false);
         this.flags.put("entity_interact", false);
+        this.flags.put("chest_access", false);
+        this.flags.put("door_interact", false);
     }
 
     public boolean getFlag(String flag) {

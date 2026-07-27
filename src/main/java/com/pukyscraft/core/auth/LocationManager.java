@@ -13,7 +13,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 
 public class LocationManager {
-    private static final File FILE = new File("config/PukysCore/Auth/locations.json");
+    private static final File FILE = new File("config/PukysCore/database/locations.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static LocationsData data = new LocationsData();
 

@@ -17,7 +17,7 @@ public class AuthSessionManager {
     private static final ConcurrentHashMap<UUID, Boolean> sessionMap = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, Long> joinTimes = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, LocationManager.Location> lastLocations = new ConcurrentHashMap<>();
-    private static final File INV_DIR = new File("config/PukysCore/Auth/inventories");
+    private static final File INV_DIR = new File("config/PukysCore/auth/inventories");
 
     private static class SessionCache {
         long logoutTime;

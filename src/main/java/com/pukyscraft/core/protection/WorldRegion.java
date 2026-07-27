@@ -14,7 +14,10 @@ public class WorldRegion {
     public static final String[] AVAILABLE_FLAGS = {
             "block_break", "block_place", "pvp", "explosion_damage",
             "fall_damage", "mob_damage", "hunger_loss", "health_regen",
-            "block_interact", "entity_interact"
+            "block_interact", "entity_interact",
+            "mob_spawning", "mob_griefing", "chest_access", "door_interact", "item_drop", "item_pickup",
+            "enderpearl", "chorus_fruit", "leaf_decay", "water_flow", "lava_flow",
+            "fire_spread", "natural_growth", "farmland_trample", "use_bucket"
     };
 
     public WorldRegion(String name, String dimension, BlockPos pos1, BlockPos pos2) {

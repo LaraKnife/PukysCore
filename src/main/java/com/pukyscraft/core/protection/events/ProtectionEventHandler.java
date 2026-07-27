@@ -76,21 +76,70 @@ public class ProtectionEventHandler {
         String dimension = player.level().dimension().location().toString();
         BlockPos pos = event.getPos();
 
+        boolean isChest = event.getLevel().getBlockState(pos).is(net.minecraft.tags.BlockTags.GUARDED_BY_PIGLINS);
+        boolean isDoor = event.getLevel().getBlockState(pos).is(net.minecraft.tags.BlockTags.DOORS) || event.getLevel().getBlockState(pos).is(net.minecraft.tags.BlockTags.TRAPDOORS);
+        ItemStack item = event.getItemStack();
+        boolean isFireOrTNT = item.getItem() == Items.FLINT_AND_STEEL || item.getItem() == Items.FIRE_CHARGE || item.getItem() == net.minecraft.world.item.Items.TNT;
+
         Region pRegion = RegionManager.getRegionAt(pos, dimension);
         if (pRegion != null) {
             if (!pRegion.isMemberOrOwner(player.getUUID()) && !hasAdmin) {
-                if (!pRegion.getFlag("block_interact")) {
+                if (isFireOrTNT) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cNo puedes iniciar fuego en esta zona ni usar TNT aquí."));
+                    return;
+                }
+                if (isChest && !pRegion.getFlag("chest_access")) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cAcceso denegado."));
+                    return;
+                }
+                if (isDoor && !pRegion.getFlag("door_interact")) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cNo puedes interactuar con bloques aquí."));
+                    return;
+                }
+                if (!isChest && !isDoor && !pRegion.getFlag("block_interact")) {
                     event.setCanceled(true);
                     player.inventoryMenu.sendAllDataToRemote();
-                    player.sendSystemMessage(Component.literal("§cEl dueño ha bloqueado las interacciones aquí."));
+                    player.sendSystemMessage(Component.literal("§cNo puedes interactuar con bloques aquí."));
+                    return;
                 }
             }
         } else {
             WorldRegion wRegion = RegionManager.getWorldRegionAt(pos, dimension);
-            if (!wRegion.getFlag("block_interact") && !hasAdmin) {
-                event.setCanceled(true);
-                player.inventoryMenu.sendAllDataToRemote();
-                player.sendSystemMessage(Component.literal("§cNo puedes interactuar con bloques aquí."));
+            if (!hasAdmin) {
+                // Chequeo de fuego y TNT
+                if (isFireOrTNT) {
+                    boolean allowFire = wRegion.getFlag("fire_spread");
+                    if (!allowFire) {
+                        event.setCanceled(true);
+                        player.sendSystemMessage(Component.literal("§cNo puedes iniciar fuego o usar TNT en esta zona."));
+                        return;
+                    }
+                }
+
+                // Chequeo de cofres en zona global
+                if (isChest && !wRegion.getFlag("chest_access")) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cAcceso a cofres denegado en esta zona."));
+                    return;
+                }
+
+                // Chequeo de puertas en zona global
+                if (isDoor && !wRegion.getFlag("door_interact")) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cNo puedes interactuar con puertas aquí."));
+                    return;
+                }
+
+                // Chequeo de otros bloques en zona global
+                if (!isChest && !isDoor && !wRegion.getFlag("block_interact")) {
+                    event.setCanceled(true);
+                    player.inventoryMenu.sendAllDataToRemote();
+                    player.sendSystemMessage(Component.literal("§cNo puedes interactuar con bloques aquí."));
+                    return;
+                }
             }
         }
     }
@@ -120,6 +169,25 @@ public class ProtectionEventHandler {
                 playerRegions.remove(uuid);
             } else {
                 playerRegions.put(uuid, currentRegion);
+            }
+        }
+
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(player.blockPosition(), dimension);
+        if (!wRegion.getFlag("hunger_loss")) {
+            player.getFoodData().setExhaustion(0.0f);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingHeal(net.minecraftforge.event.entity.living.LivingHealEvent event) {
+        if (event.getEntity().level().isClientSide()) return;
+
+        if (event.getEntity() instanceof ServerPlayer player) {
+            String dimension = player.level().dimension().location().toString();
+            WorldRegion wRegion = RegionManager.getWorldRegionAt(player.blockPosition(), dimension);
+
+            if (!wRegion.getFlag("health_regen")) {
+                event.setCanceled(true);
             }
         }
     }
@@ -160,20 +228,45 @@ public class ProtectionEventHandler {
                     event.getLevel().setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
                     RegionManager.removeRegion(pRegion);
 
-                    PukysConfig.ProtectionBlock protType = PukysConfig.protectionBlocks.get(pRegion.type);
-                    if (protType != null) {
-                        String[] parts = protType.material.split(":");
-                        ResourceLocation res = parts.length == 2 ? new ResourceLocation(parts[0], parts[1]) : new ResourceLocation("minecraft", protType.material);
-                        ItemStack protectionBlock = new ItemStack(ForgeRegistries.ITEMS.getValue(res));
+                    if (PukysConfig.returnProtectionBlockOnBreak.get()) {
+                        PukysConfig.ProtectionBlock protType = PukysConfig.protectionBlocks.get(pRegion.type);
+                        if (protType != null) {
+                            String[] parts = protType.material.split(":");
+                            ResourceLocation res = parts.length == 2 ? new ResourceLocation(parts[0], parts[1]) : new ResourceLocation("minecraft", protType.material);
+                            ItemStack protectionBlock = new ItemStack(ForgeRegistries.ITEMS.getValue(res));
 
-                        protectionBlock.setHoverName(Component.literal(protType.displayName));
-                        CompoundTag nbt = protectionBlock.getOrCreateTag();
-                        nbt.putString("PukysProtectionType", pRegion.type);
-                        protectionBlock.setTag(nbt);
+                            String formattedName = protType.displayName.replace("&", "§");
+                            protectionBlock.setHoverName(Component.literal(formattedName));
 
-                        if (!player.getInventory().add(protectionBlock)) player.drop(protectionBlock, false);
+                            CompoundTag nbt = protectionBlock.getOrCreateTag();
+                            nbt.putString("PukysProtectionType", pRegion.type);
+
+                            CompoundTag displayTag = nbt.contains("display") ? nbt.getCompound("display") : new CompoundTag();
+                            net.minecraft.nbt.ListTag loreList = new net.minecraft.nbt.ListTag();
+                            for (String line : protType.lore) {
+                                String jsonLore = Component.Serializer.toJson(Component.literal(line.replace("&", "§")));
+                                loreList.add(net.minecraft.nbt.StringTag.valueOf(jsonLore));
+                            }
+                            displayTag.put("Lore", loreList);
+                            nbt.put("display", displayTag);
+
+                            if (protType.enchanted) {
+                                net.minecraft.nbt.ListTag enchantments = new net.minecraft.nbt.ListTag();
+                                enchantments.add(new CompoundTag());
+                                nbt.put("Enchantments", enchantments);
+                                nbt.putInt("HideFlags", 1);
+                            }
+
+                            protectionBlock.setTag(nbt);
+
+                            if (!player.getInventory().add(protectionBlock)) {
+                                player.drop(protectionBlock, false);
+                            }
+                            player.sendSystemMessage(Component.literal("§aZona desprotegida. Bloque recuperado."));
+                        }
+                    } else {
+                        player.sendSystemMessage(Component.literal("§aZona desprotegida."));
                     }
-                    player.sendSystemMessage(Component.literal("§aZona desprotegida. Bloque recuperado."));
                 } else {
                     event.setCanceled(true);
                     player.sendSystemMessage(Component.literal("§cNo puedes destruir el bloque de protección."));
@@ -183,10 +276,8 @@ public class ProtectionEventHandler {
 
             // Flag regular de la zona de jugador
             if (!pRegion.isMemberOrOwner(player.getUUID()) && !hasAdmin) {
-                if (!pRegion.getFlag("block_break")) {
-                    event.setCanceled(true);
-                    player.sendSystemMessage(Component.literal("§cNo tienes permiso para romper bloques aquí."));
-                }
+                event.setCanceled(true);
+                player.sendSystemMessage(Component.literal("§cNo tienes permiso para romper bloques aquí."));
             }
         } else {
             WorldRegion wRegion = RegionManager.getWorldRegionAt(pos, dimension);
@@ -206,7 +297,7 @@ public class ProtectionEventHandler {
         WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getEntity().blockPosition(), dimension);
 
         boolean allowPvp = (pRegion != null) ? pRegion.getFlag("pvp") : wRegion.getFlag("pvp");
-        boolean allowFall = (pRegion != null) ? pRegion.getFlag("fall_damage") : wRegion.getFlag("fall_damage");
+        boolean allowFall = wRegion.getFlag("fall_damage");
         boolean allowMobDamage = wRegion.getFlag("mob_damage");
 
         boolean isVictimPlayer = event.getEntity() instanceof Player;
@@ -242,7 +333,7 @@ public class ProtectionEventHandler {
         affectedBlocks.removeIf(pos -> {
             for (Region pRegion : localRegions) {
                 if (pRegion.contains(pos, dimension)) {
-                    return !pRegion.getFlag("explosion_damage");
+                    return true;
                 }
             }
             WorldRegion wRegion = RegionManager.getWorldRegionAt(pos, dimension);
@@ -271,6 +362,154 @@ public class ProtectionEventHandler {
         if (region != null && !region.isMemberOrOwner(player.getUUID()) && !hasAdmin) {
             event.setCanceled(true);
             player.sendSystemMessage(Component.literal("§cNo puedes interactuar con entidades en la zona de otro jugador."));
+        }
+    }
+
+    // Bloquea Endermans, Creepers y cualquier mob que modifique bloques
+    @SubscribeEvent
+    public static void onMobGriefing(net.minecraftforge.event.entity.EntityMobGriefingEvent event) {
+        if (event.getEntity() == null || event.getEntity().level().isClientSide()) return;
+        String dimension = event.getEntity().level().dimension().location().toString();
+        Region pRegion = RegionManager.getRegionAt(event.getEntity().blockPosition(), dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getEntity().blockPosition(), dimension);
+
+        boolean allowGrief = pRegion != null ? false : wRegion.getFlag("mob_griefing");
+        if (!allowGrief) event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+    }
+
+    // Bloquea la generación natural de mobs hostiles y pasivos
+    @SubscribeEvent
+    public static void onMobSpawn(net.minecraftforge.event.entity.living.MobSpawnEvent.FinalizeSpawn event) {
+        String dimension = event.getLevel().getLevel().dimension().location().toString();
+        BlockPos pos = BlockPos.containing(event.getX(), event.getY(), event.getZ());
+        Region pRegion = RegionManager.getRegionAt(pos, dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(pos, dimension);
+
+        boolean allowSpawn = pRegion != null ? true : wRegion.getFlag("mob_spawning");
+        if (!allowSpawn) {
+            event.setSpawnCancelled(true);
+            event.setCanceled(true);
+        }
+    }
+
+    // Evita tirar objetos
+    @SubscribeEvent
+    public static void onItemDrop(net.minecraftforge.event.entity.item.ItemTossEvent event) {
+        if (event.getPlayer().level().isClientSide()) return;
+        String dimension = event.getPlayer().level().dimension().location().toString();
+        Region pRegion = RegionManager.getRegionAt(event.getPlayer().blockPosition(), dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getPlayer().blockPosition(), dimension);
+
+        boolean allowDrop = pRegion != null ? true : wRegion.getFlag("item_drop");
+        if (!allowDrop && !isAdmin((ServerPlayer) event.getPlayer())) {
+            event.setCanceled(true);
+            event.getPlayer().getInventory().add(event.getEntity().getItem());
+        }
+    }
+
+    // Evita recoger objetos
+    @SubscribeEvent
+    public static void onItemPickup(net.minecraftforge.event.entity.player.EntityItemPickupEvent event) {
+        if (event.getEntity().level().isClientSide()) return;
+        String dimension = event.getEntity().level().dimension().location().toString();
+        Region pRegion = RegionManager.getRegionAt(event.getEntity().blockPosition(), dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getEntity().blockPosition(), dimension);
+
+        boolean allowPickup = pRegion != null ? true : wRegion.getFlag("item_pickup");
+        if (!allowPickup && !isAdmin((ServerPlayer) event.getEntity())) event.setCanceled(true);
+    }
+
+    // TP (Perlas y Chorus)
+    @SubscribeEvent
+    public static void onEnderPearlTeleport(net.minecraftforge.event.entity.EntityTeleportEvent.EnderPearl event) {
+        if (event.getEntity().level().isClientSide()) return;
+
+        String dimension = event.getEntity().level().dimension().location().toString();
+        BlockPos targetPos = BlockPos.containing(event.getTargetX(), event.getTargetY(), event.getTargetZ());
+
+        ServerPlayer sp = event.getPlayer();
+
+        if (sp == null) return;
+
+        Region pRegion = RegionManager.getRegionAt(targetPos, dimension);
+        if (pRegion != null) {
+            if (!isAdmin(sp) && !pRegion.isMemberOrOwner(sp.getUUID())) {
+                event.setCanceled(true);
+                sp.sendSystemMessage(Component.literal("§cLa teleportación con Ender Pearls está prohibida en zonas ajenas."));
+            }
+        } else {
+            WorldRegion wRegion = RegionManager.getWorldRegionAt(targetPos, dimension);
+            if (!wRegion.getFlag("enderpearl") && !isAdmin(sp)) {
+                event.setCanceled(true);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onChorusFruitTeleport(net.minecraftforge.event.entity.EntityTeleportEvent.ChorusFruit event) {
+        if (event.getEntity().level().isClientSide()) return;
+        String dimension = event.getEntity().level().dimension().location().toString();
+        BlockPos targetPos = BlockPos.containing(event.getTargetX(), event.getTargetY(), event.getTargetZ());
+
+        Region pRegion = RegionManager.getRegionAt(targetPos, dimension);
+        if (pRegion != null) {
+            if (event.getEntity() instanceof ServerPlayer sp && !isAdmin(sp) && !pRegion.isMemberOrOwner(sp.getUUID())) {
+                event.setCanceled(true);
+                sp.sendSystemMessage(Component.literal("§cLa teleportación con Fruta Coral está prohibida en zonas ajenas."));
+            }
+        } else {
+            WorldRegion wRegion = RegionManager.getWorldRegionAt(targetPos, dimension);
+            if (!wRegion.getFlag("chorus_fruit") && event.getEntity() instanceof ServerPlayer sp && !isAdmin(sp)) {
+                event.setCanceled(true);
+            }
+        }
+    }
+
+    // Cultivos y crecimiento
+    @SubscribeEvent
+    public static void onFarmlandTrample(net.minecraftforge.event.level.BlockEvent.FarmlandTrampleEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        String dimension = event.getEntity().level().dimension().location().toString();
+        Region pRegion = RegionManager.getRegionAt(event.getPos(), dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getPos(), dimension);
+
+        boolean allowTrample = pRegion != null ? true : wRegion.getFlag("farmland_trample");
+        if (!allowTrample) event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void onCropGrowth(net.minecraftforge.event.level.BlockEvent.CropGrowEvent.Pre event) {
+        if (event.getLevel().isClientSide() || !(event.getLevel() instanceof net.minecraft.world.level.Level realLevel)) return;
+        String dimension = realLevel.dimension().location().toString();
+        Region pRegion = RegionManager.getRegionAt(event.getPos(), dimension);
+        WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getPos(), dimension);
+
+        boolean allowGrowth = pRegion != null ? true : wRegion.getFlag("natural_growth");
+        if (!allowGrowth) event.setResult(net.minecraftforge.eventbus.api.Event.Result.DENY);
+    }
+
+    // Uso de cubos (lava y agua)
+    @SubscribeEvent
+    public static void onBucketUse(net.minecraftforge.event.entity.player.FillBucketEvent event) {
+        if (event.getLevel().isClientSide() || !(event.getEntity() instanceof ServerPlayer player)) return;
+        net.minecraft.world.phys.HitResult target = event.getTarget();
+
+        if (target != null && target.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            BlockPos pos = ((net.minecraft.world.phys.BlockHitResult) target).getBlockPos();
+            String dimension = player.level().dimension().location().toString();
+
+            Region pRegion = RegionManager.getRegionAt(pos, dimension);
+            if (pRegion != null) {
+                if (!isAdmin(player) && !pRegion.isMemberOrOwner(player.getUUID())) {
+                    event.setCanceled(true);
+                    player.sendSystemMessage(Component.literal("§cNo puedes usar cubetas en la zona de otro jugador."));
+                }
+            } else {
+                WorldRegion wRegion = RegionManager.getWorldRegionAt(pos, dimension);
+                if (!wRegion.getFlag("use_bucket") && !isAdmin(player)) {
+                    event.setCanceled(true);
+                }
+            }
         }
     }
 }

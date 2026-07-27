@@ -36,6 +36,8 @@ public class PukysConfig {
     public static ForgeConfigSpec.BooleanValue enableBack;
     public static ForgeConfigSpec.IntValue defaultMaxHomes;
 
+    public static ForgeConfigSpec.BooleanValue returnProtectionBlockOnBreak;
+
     public static ForgeConfigSpec.ConfigValue<List<? extends String>> protectionBlocksList;
 
     // Permitir lectura/escritura segura durante recargas en vivo
@@ -72,6 +74,12 @@ public class PukysConfig {
         enableBack = BUILDER.comment("Habilitar comando /back").define("enableBack", true);
         defaultMaxHomes = BUILDER.comment("Homes por defecto")
                 .defineInRange("defaultMaxHomes", 2, 0, 100);
+        BUILDER.pop();
+
+        // --- SECCIÓN PROTECCIONES ---
+        BUILDER.comment("=== CONFIGURACION DE PROTECCIONES ===").push("protections");
+        returnProtectionBlockOnBreak = BUILDER.comment("Devolver el bloque de protección al jugador cuando lo rompe")
+                .define("returnProtectionBlockOnBreak", true);
         BUILDER.pop();
 
         SERVER_SPEC = BUILDER.build();

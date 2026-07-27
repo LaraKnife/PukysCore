@@ -19,16 +19,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class RegionManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    // --- VARIABLES PARA BLOQUES DE PROTECCIÓN ---
-    private static final File REGIONS_FILE = FMLPaths.GAMEDIR.get().resolve("config/PukysCore/database/regions.json").toFile();
+    private static final File REGIONS_FILE = FMLPaths.CONFIGDIR.get().resolve("PukysCore/database/regions.json").toFile();
+    private static final Path WORLD_REGIONS_DIR = FMLPaths.CONFIGDIR.get().resolve("PukysCore/database/world_regions");
 
     public static List<Region> activeRegions = new CopyOnWriteArrayList<>();
     private static volatile Map<String, Map<Long, List<Region>>> spatialIndex = new ConcurrentHashMap<>();
 
-    // --- VARIABLES PARA WORLD REGIONS ---
     private static final Map<UUID, PlayerSelection> ACTIVE_SELECTIONS = new HashMap<>();
     private static final Map<String, WorldRegion> WORLD_REGIONS = new HashMap<>();
-    private static final Path WORLD_REGIONS_DIR = FMLPaths.CONFIGDIR.get().resolve("PukysCore/Regiones");
 
     private static final ExecutorService ASYNC_IO = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "PukysCore-AsyncSaver");
@@ -53,13 +51,18 @@ public class RegionManager {
     }
 
     public static void saveWorldRegion(WorldRegion region) {
-        WORLD_REGIONS.put(region.getName().toLowerCase(), region);
-        File file = WORLD_REGIONS_DIR.resolve(region.getName().toLowerCase() + ".json").toFile();
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(region, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        String key = region.getName().toLowerCase();
+        WORLD_REGIONS.put(key, region);
+
+        ASYNC_IO.submit(() -> {
+            String safeFileName = key.replace(":", "_");
+            File file = WORLD_REGIONS_DIR.resolve(safeFileName + ".json").toFile();
+            try (FileWriter writer = new FileWriter(file)) {
+                GSON.toJson(region, writer);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private static void loadAllWorldRegions() {
@@ -74,10 +77,6 @@ public class RegionManager {
                 }
             }
         }
-        if (!WORLD_REGIONS.containsKey("__global__")) {
-            WorldRegion global = new WorldRegion("__global__", "all", BlockPos.ZERO, BlockPos.ZERO);
-            saveWorldRegion(global);
-        }
     }
 
     public static WorldRegion getWorldRegion(String name) {
@@ -90,7 +89,19 @@ public class RegionManager {
                 return region;
             }
         }
-        return WORLD_REGIONS.get("__global__");
+        return getGlobalRegionForDimension(dimension);
+    }
+
+    public static WorldRegion getGlobalRegionForDimension(String dimension) {
+        String globalName = "__global__" + dimension.toLowerCase();
+
+        if (!WORLD_REGIONS.containsKey(globalName)) {
+            WorldRegion global = new WorldRegion(globalName, dimension, BlockPos.ZERO, BlockPos.ZERO);
+            saveWorldRegion(global);
+            System.out.println("[PukysCore] Región global generada para la dimensión: " + dimension);
+        }
+
+        return WORLD_REGIONS.get(globalName);
     }
 
     // ============================================
@@ -120,6 +131,17 @@ public class RegionManager {
                 e.printStackTrace();
             }
         });
+    }
+
+    public static void saveRegionsSync() {
+        try {
+            REGIONS_FILE.getParentFile().mkdirs();
+            try (Writer writer = new FileWriter(REGIONS_FILE)) {
+                GSON.toJson(activeRegions, writer);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public static synchronized void addRegion(Region region) {

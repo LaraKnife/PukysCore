@@ -15,8 +15,8 @@ public class FunctionsEventHandler {
     public static void onPlayerDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportManager.deathLocations.put(player.getUUID(), new TeleportManager.LocationData(
-                    player.level().dimension().location().toString(),
-                    player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()
+                    player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot(),
+                    player.level().dimension().location().toString()
             ));
         }
     }

@@ -1,13 +1,16 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.pukyscraft.core.auth.mixin",
+  "package": "com.pukyscraft.core.mixin",
   "compatibilityLevel": "JAVA_17",
   "refmap": "pukyscore.refmap.json",
   "mixins": [],
   "client": [],
   "server": [
-    "ServerLoginPacketListenerImplMixin"
+    "ServerLoginPacketListenerImplMixin",
+    "FireBlockMixin",
+    "LeavesBlockMixin",
+    "FlowingFluidMixin"
   ],
   "injectors": {
     "defaultRequire": 1

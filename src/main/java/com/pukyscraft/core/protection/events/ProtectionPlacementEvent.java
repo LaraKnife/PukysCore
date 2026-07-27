@@ -33,12 +33,10 @@ public class ProtectionPlacementEvent {
         Region pRegion = RegionManager.getRegionAt(event.getPos(), dimension);
         if (pRegion != null) {
             if (!pRegion.isMemberOrOwner(player.getUUID()) && !hasAdmin) {
-                if (!pRegion.getFlag("block_place")) {
-                    player.sendSystemMessage(Component.literal("§cEl dueño prohíbe colocar bloques aquí."));
-                    event.setCanceled(true);
-                    if (player instanceof ServerPlayer sp) sp.inventoryMenu.sendAllDataToRemote();
-                    return;
-                }
+                player.sendSystemMessage(Component.literal("§cNo puedes construir en la zona de otro jugador."));
+                event.setCanceled(true);
+                if (player instanceof ServerPlayer sp) sp.inventoryMenu.sendAllDataToRemote();
+                return;
             }
         } else {
             WorldRegion wRegion = RegionManager.getWorldRegionAt(event.getPos(), dimension);

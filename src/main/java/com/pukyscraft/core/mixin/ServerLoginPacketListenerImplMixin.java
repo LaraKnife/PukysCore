@@ -1,4 +1,4 @@
-package com.pukyscraft.core.auth.mixin;
+package com.pukyscraft.core.mixin;
 
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.server.MinecraftServer;

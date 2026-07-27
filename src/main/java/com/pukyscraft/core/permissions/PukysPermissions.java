@@ -1,10 +1,8 @@
 package com.pukyscraft.core.permissions;
 
 import com.pukyscraft.core.PukysConfig;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.server.permission.PermissionAPI;
 import net.minecraftforge.server.permission.events.PermissionGatherEvent;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import net.minecraftforge.server.permission.nodes.PermissionTypes;
@@ -13,7 +11,6 @@ import net.minecraftforge.server.permission.nodes.PermissionTypes;
 public class PukysPermissions {
 
     public static PermissionNode<Boolean> ADMIN_COMMANDS;
-
     public static PermissionNode<Integer> MAX_HOMES;
 
     @SubscribeEvent

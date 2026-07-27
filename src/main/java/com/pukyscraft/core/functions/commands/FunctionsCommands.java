@@ -19,12 +19,12 @@ public class FunctionsCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 
-        // Creamos la regla universal para tus comandos de admin
+        // Creamos la regla universal para comandos de admin
         java.util.function.Predicate<CommandSourceStack> requireAdmin = source -> {
             if (source.getEntity() instanceof ServerPlayer player) {
                 return PermissionAPI.getPermission(player, PukysPermissions.ADMIN_COMMANDS);
             }
-            return source.hasPermission(2); // Para la consola
+            return source.hasPermission(2);
         };
 
         // ================= HOMES =================
@@ -129,8 +129,8 @@ public class FunctionsCommands {
         }
 
         homes.put(name.toLowerCase(), new TeleportManager.LocationData(
-                player.level().dimension().location().toString(),
-                player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()
+                player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot(),
+                player.level().dimension().location().toString()
         ));
 
         TeleportManager.saveHomesAsync();
@@ -186,8 +186,8 @@ public class FunctionsCommands {
         if (player == null) return 0;
 
         TeleportManager.serverWarps.put(name.toLowerCase(), new TeleportManager.LocationData(
-                player.level().dimension().location().toString(),
-                player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()
+                player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot(),
+                player.level().dimension().location().toString()
         ));
 
         TeleportManager.saveWarpsAsync();
@@ -259,9 +259,15 @@ public class FunctionsCommands {
 
         if (accept) {
             if (req.isHere) {
-                TeleportManager.teleportPlayer(receiver, new TeleportManager.LocationData(sender.level().dimension().location().toString(), sender.getX(), sender.getY(), sender.getZ(), sender.getYRot(), sender.getXRot()));
+                TeleportManager.teleportPlayer(receiver, new TeleportManager.LocationData(
+                        sender.getX(), sender.getY(), sender.getZ(), sender.getYRot(), sender.getXRot(),
+                        sender.level().dimension().location().toString())
+                );
             } else {
-                TeleportManager.teleportPlayer(sender, new TeleportManager.LocationData(receiver.level().dimension().location().toString(), receiver.getX(), receiver.getY(), receiver.getZ(), receiver.getYRot(), receiver.getXRot()));
+                TeleportManager.teleportPlayer(sender, new TeleportManager.LocationData(
+                        receiver.getX(), receiver.getY(), receiver.getZ(), receiver.getYRot(), receiver.getXRot(),
+                        receiver.level().dimension().location().toString())
+                );
             }
             sender.sendSystemMessage(Component.literal("§a" + receiver.getName().getString() + " aceptó tu petición."));
             source.sendSuccess(() -> Component.literal("§aPetición aceptada."), false);
@@ -277,8 +283,8 @@ public class FunctionsCommands {
         if (executor == null) return 0;
 
         TeleportManager.LocationData dest = new TeleportManager.LocationData(
-                executor.level().dimension().location().toString(),
-                executor.getX(), executor.getY(), executor.getZ(), executor.getYRot(), executor.getXRot()
+                executor.getX(), executor.getY(), executor.getZ(), executor.getYRot(), executor.getXRot(),
+                executor.level().dimension().location().toString()
         );
 
         for (ServerPlayer p : executor.server.getPlayerList().getPlayers()) {
