@@ -27,6 +27,7 @@ public class AuthEventHandler {
     public static void onServerStarting(ServerStartingEvent event) {
         LocationManager.init();
         AuthDatabase.init();
+        PremiumCache.init();
     }
 
     @SubscribeEvent

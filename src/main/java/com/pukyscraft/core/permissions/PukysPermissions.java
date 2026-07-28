@@ -7,11 +7,14 @@ import net.minecraftforge.server.permission.events.PermissionGatherEvent;
 import net.minecraftforge.server.permission.nodes.PermissionNode;
 import net.minecraftforge.server.permission.nodes.PermissionTypes;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Mod.EventBusSubscriber(modid = "pukyscore", bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PukysPermissions {
 
     public static PermissionNode<Boolean> ADMIN_COMMANDS;
-    public static PermissionNode<Integer> MAX_HOMES;
+    public static final Map<Integer, PermissionNode<Boolean>> MAX_HOMES_NODES = new HashMap<>();
 
     @SubscribeEvent
     public static void onPermissionGather(PermissionGatherEvent.Nodes event) {
@@ -20,12 +23,15 @@ public class PukysPermissions {
                 "pukyscore", "admin", PermissionTypes.BOOLEAN,
                 (player, uuid, context) -> player != null && player.hasPermissions(2)
         );
+        event.addNodes(ADMIN_COMMANDS);
 
-        MAX_HOMES = new PermissionNode<>(
-                "pukyscore", "max_homes", PermissionTypes.INTEGER,
-                (player, uuid, context) -> PukysConfig.defaultMaxHomes.get()
-        );
-
-        event.addNodes(ADMIN_COMMANDS, MAX_HOMES);
+        for (int i = 1; i <= 100; i++) {
+            PermissionNode<Boolean> node = new PermissionNode<>(
+                    "pukyscore", "max_homes." + i, PermissionTypes.BOOLEAN,
+                    (player, uuid, context) -> false
+            );
+            MAX_HOMES_NODES.put(i, node);
+            event.addNodes(node);
+        }
     }
 }

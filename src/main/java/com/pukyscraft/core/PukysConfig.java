@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.File;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
 
 @Mod.EventBusSubscriber(modid = PukysCore.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class PukysConfig {
@@ -154,7 +155,13 @@ public class PukysConfig {
 
     public static int getMaxHomes(ServerPlayer player) {
         if (player == null) return defaultMaxHomes.get();
-        return PermissionAPI.getPermission(player, PukysPermissions.MAX_HOMES);
+        for (int i = 100; i > 0; i--) {
+            PermissionNode<Boolean> node = PukysPermissions.MAX_HOMES_NODES.get(i);
+            if (node != null && PermissionAPI.getPermission(player, node)) {
+                return i;
+            }
+        }
+        return defaultMaxHomes.get();
     }
 
     public static class ProtectionBlock {
