@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.pukyscraft.core.PukysConfig;
+import com.pukyscraft.core.auth.AuthDatabase;
 import com.pukyscraft.core.permissions.PukysPermissions;
 import com.pukyscraft.core.protection.PlayerSelection;
 import com.pukyscraft.core.protection.Region;
@@ -172,7 +173,7 @@ public class ProtectionCommands {
                 )
                 .then(Commands.literal("_toggleflag")
                         .requires(requireAdmin)
-                        .then(Commands.argument("region", StringArgumentType.word())
+                        .then(Commands.argument("region", StringArgumentType.string())
                                 .then(Commands.argument("flag", StringArgumentType.word())
                                         .then(Commands.argument("value", BoolArgumentType.bool()).executes(context -> {
                                             String regName = StringArgumentType.getString(context, "region");
@@ -301,11 +302,11 @@ public class ProtectionCommands {
             return 0;
         }
 
-        // 1. Obtener la ubicación actual y dimensión del ejecutor
+        // Obtener la ubicación actual y dimensión del ejecutor
         BlockPos pos = executor.blockPosition();
         String dimension = executor.level().dimension().location().toString();
 
-        // 2. Buscar la región
+        // Buscar la región
         Region region = RegionManager.getRegionAt(pos, dimension);
 
         if (region == null) {
@@ -313,16 +314,16 @@ public class ProtectionCommands {
             return 0;
         }
 
-        // 3. Comprobar si el ejecutor tiene permisos de Admin o es OP (Nivel 2+)
+        // Comprobar si el ejecutor tiene permisos de Admin o es OP (Nivel 2+)
         boolean hasAdmin = PermissionAPI.getPermission(executor, PukysPermissions.ADMIN_COMMANDS) || executor.hasPermissions(2);
 
-        // 4. Validar propiedad: Permitir si es el dueño O si es administrador
+        // Validar propiedad: Permitir si es el dueño O si es administrador
         if (!region.owner.equals(executor.getUUID()) && !hasAdmin) {
             source.sendFailure(Component.literal("§cNo eres el dueño de esta protección."));
             return 0;
         }
 
-        // 5. Aplicar lógica de añadir/remover al target
+        // Aplicar lógica de añadir/remover al target
         UUID targetUUID = targetPlayer.getUUID();
 
         if (isAdding) {
@@ -380,8 +381,6 @@ public class ProtectionCommands {
         }
         return 1;
     }
-
-    // --- MÉTODOS AUXILIARES PARA GENERAR MENÚS INTERACTIVOS ---
 
     private static void sendPlayerInteractiveMenu(ServerPlayer player, Region region) {
         player.sendSystemMessage(Component.literal("\n§8====== §bFlags de Tu Protección §8======"));

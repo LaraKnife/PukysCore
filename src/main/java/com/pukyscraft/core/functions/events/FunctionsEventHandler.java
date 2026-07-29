@@ -24,9 +24,20 @@ public class FunctionsEventHandler {
     // Limpia la caché temporal para evitar abusos y fugas de RAM
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        java.util.UUID uuid = event.getEntity().getUUID();
-        TeleportManager.pendingTpa.remove(uuid);
-        TeleportManager.backLocations.remove(uuid);
-        TeleportManager.deathLocations.remove(uuid);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            java.util.UUID uuid = player.getUUID();
+            String playerName = player.getName().getString().toLowerCase();
+
+            TeleportManager.logoutLocations.put(playerName, new TeleportManager.LocationData(
+                    player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot(),
+                    player.level().dimension().location().toString()
+            ));
+
+            TeleportManager.saveLogoutLocationsAsync();
+
+            TeleportManager.pendingTpa.remove(uuid);
+            TeleportManager.backLocations.remove(uuid);
+            TeleportManager.deathLocations.remove(uuid);
+        }
     }
 }

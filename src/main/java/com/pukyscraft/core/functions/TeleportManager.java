@@ -27,6 +27,9 @@ public class TeleportManager {
     public static final Map<UUID, LocationData> deathLocations = new ConcurrentHashMap<>();
     public static final Map<UUID, TpaRequest> pendingTpa = new ConcurrentHashMap<>();
 
+    public static final Map<String, LocationData> logoutLocations = new ConcurrentHashMap<>();
+    private static final File LOGOUTS_FILE = FMLPaths.GAMEDIR.get().resolve("config/PukysCore/database/logouts.json").toFile();
+
     public static class LocationData {
         public double x, y, z;
         public float yaw, pitch;
@@ -99,6 +102,20 @@ public class TeleportManager {
                 if (!WARPS_FILE.getParentFile().exists()) WARPS_FILE.getParentFile().mkdirs();
                 try (Writer writer = new FileWriter(WARPS_FILE)) { GSON.toJson(copy, writer); }
             } catch (Exception e) { e.printStackTrace(); }
+        });
+    }
+
+    public static void saveLogoutLocationsAsync() {
+        final Map<String, LocationData> copy = new HashMap<>(logoutLocations);
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (!LOGOUTS_FILE.getParentFile().exists()) LOGOUTS_FILE.getParentFile().mkdirs();
+                try (Writer writer = new FileWriter(LOGOUTS_FILE)) {
+                    GSON.toJson(copy, writer);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
     }
 }

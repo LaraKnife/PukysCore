@@ -156,4 +156,13 @@ public class AuthDatabase {
             }
         }
     }
+
+    public static UUID getUUIDByName(String username) {
+        for (Map.Entry<String, UserData> entry : users.entrySet()) {
+            if (entry.getValue().username.equalsIgnoreCase(username)) {
+                return UUID.fromString(entry.getKey());
+            }
+        }
+        return null;
+    }
 }

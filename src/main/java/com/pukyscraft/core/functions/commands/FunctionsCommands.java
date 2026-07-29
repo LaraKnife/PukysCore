@@ -1,10 +1,13 @@
 package com.pukyscraft.core.functions.commands;
 
 import com.pukyscraft.core.PukysConfig;
+import com.pukyscraft.core.auth.AuthDatabase;
 import com.pukyscraft.core.functions.TeleportManager;
+import com.pukyscraft.core.functions.InventoryManager;
+import com.pukyscraft.core.permissions.PukysPermissions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.pukyscraft.core.permissions.PukysPermissions;
+import com.mojang.authlib.GameProfile;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -14,6 +17,8 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraftforge.server.permission.PermissionAPI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 public class FunctionsCommands {
 
@@ -115,6 +120,101 @@ public class FunctionsCommands {
         dispatcher.register(Commands.literal("backondeath")
                 .requires(source -> source.hasPermission(0))
                 .executes(c -> tpBack(c.getSource(), true)));
+
+        // ================= TPOFFLINE =================
+        dispatcher.register(Commands.literal("tpoffline")
+                .requires(requireAdmin)
+                .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(context -> {
+                            String target = StringArgumentType.getString(context, "player").toLowerCase();
+                            TeleportManager.LocationData loc = TeleportManager.logoutLocations.get(target);
+
+                            if (loc != null) {
+                                TeleportManager.teleportPlayer(context.getSource().getPlayerOrException(), loc);
+                                context.getSource().sendSuccess(() -> Component.literal("§aTeletransportado a la última ubicación de " + target), true);
+                            } else {
+                                context.getSource().sendFailure(Component.literal("§cNo se encontró registro de desconexión para " + target));
+                            }
+                            return 1;
+                        })));
+
+        // ================= HOMEOTHERS =================
+        dispatcher.register(Commands.literal("homesother")
+                .requires(requireAdmin)
+                .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(context -> {
+                            String targetName = StringArgumentType.getString(context, "player");
+                            UUID targetUuid = getOfflineUUID(context.getSource(), targetName);
+
+                            if (targetUuid == null) {
+                                context.getSource().sendFailure(Component.literal("§cJugador no encontrado en la caché del servidor."));
+                                return 0;
+                            }
+
+                            Map<String, TeleportManager.LocationData> homes = TeleportManager.userHomes.get(targetUuid);
+                            if (homes == null || homes.isEmpty()) {
+                                context.getSource().sendFailure(Component.literal("§c" + targetName + " no tiene ningún home registrado."));
+                            } else {
+                                context.getSource().sendSuccess(() -> Component.literal("§eHomes de " + targetName + ": §f" + String.join(", ", homes.keySet())), false);
+                            }
+                            return 1;
+                        })
+                        .then(Commands.argument("home", StringArgumentType.word())
+                                .executes(context -> {
+                                    String targetName = StringArgumentType.getString(context, "player");
+                                    String homeName = StringArgumentType.getString(context, "home");
+                                    UUID targetUuid = getOfflineUUID(context.getSource(), targetName);
+
+                                    if (targetUuid == null) {
+                                        context.getSource().sendFailure(Component.literal("§cJugador no encontrado."));
+                                        return 0;
+                                    }
+
+                                    Map<String, TeleportManager.LocationData> homes = TeleportManager.userHomes.get(targetUuid);
+                                    if (homes != null && homes.containsKey(homeName)) {
+                                        TeleportManager.teleportPlayer(context.getSource().getPlayerOrException(), homes.get(homeName));
+                                        context.getSource().sendSuccess(() -> Component.literal("§aTeletransportado al home '" + homeName + "' de " + targetName), true);
+                                    } else {
+                                        context.getSource().sendFailure(Component.literal("§cEl home '" + homeName + "' no existe para este jugador."));
+                                    }
+                                    return 1;
+                                }))));
+
+        // ================= INVSEE =================
+        dispatcher.register(Commands.literal("invsee")
+                .requires(s -> s.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                        .executes(context -> {
+                            ServerPlayer target = EntityArgument.getPlayer(context, "player");
+                            ServerPlayer admin = context.getSource().getPlayerOrException();
+                            InventoryManager.openOnlineInv(admin, target);
+                            return 1;
+                        })));
+
+        dispatcher.register(Commands.literal("invoffline")
+                .requires(s -> s.hasPermission(2))
+                .then(Commands.argument("player", StringArgumentType.word())
+                        .executes(context -> {
+                            String targetName = StringArgumentType.getString(context, "player");
+                            ServerPlayer admin = context.getSource().getPlayerOrException();
+                            UUID targetUuid = getOfflineUUID(context.getSource(), targetName);
+
+                            if (targetUuid == null) {
+                                context.getSource().sendFailure(Component.literal("§cJugador no encontrado en el registro."));
+                                return 0;
+                            }
+
+                            if (context.getSource().getServer().getPlayerList().getPlayer(targetUuid) != null) {
+                                context.getSource().sendFailure(Component.literal("§cEl jugador está online. Usa /invsee en su lugar."));
+                                return 0;
+                            }
+
+                            boolean success = InventoryManager.openOfflineInv(admin, targetUuid, targetName);
+                            if (!success) {
+                                context.getSource().sendFailure(Component.literal("§cNo se pudo encontrar el archivo de inventario de " + targetName));
+                            }
+                            return 1;
+                        })));
     }
 
     private static int setHome(CommandSourceStack source, String name) {
@@ -321,5 +421,14 @@ public class FunctionsCommands {
             source.sendFailure(Component.literal("§cNo existe un warp con el nombre '" + name + "'."));
         }
         return 1;
+    }
+
+    private static UUID getOfflineUUID(CommandSourceStack source, String playerName) {
+        UUID authUuid = AuthDatabase.getUUIDByName(playerName);
+        if (authUuid != null) {
+            return authUuid;
+        }
+        Optional<com.mojang.authlib.GameProfile> profile = source.getServer().getProfileCache().get(playerName);
+        return profile.map(com.mojang.authlib.GameProfile::getId).orElse(null);
     }
 }

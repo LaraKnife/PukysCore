@@ -3,6 +3,7 @@ package com.pukyscraft.core;
 import com.pukyscraft.core.auth.AuthDatabase;
 import com.pukyscraft.core.auth.commands.AuthCommands;
 import com.pukyscraft.core.auth.commands.CoreCommands;
+import com.pukyscraft.core.functions.LogManager;
 import com.pukyscraft.core.protection.commands.ProtectionCommands;
 import com.pukyscraft.core.auth.events.AuthEventHandler;
 import com.pukyscraft.core.functions.TeleportManager;
@@ -54,6 +55,7 @@ public class PukysCore {
 
         AuthDatabase.saveSync();
         RegionManager.saveRegionsSync();
+        LogManager.shutdown();
         System.out.println("[PukysCore] Datos guardados con éxito. Apagado seguro completado.");
     }
 }
