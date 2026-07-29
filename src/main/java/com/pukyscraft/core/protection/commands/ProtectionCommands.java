@@ -117,7 +117,7 @@ public class ProtectionCommands {
 
                             Region pRegion = RegionManager.getRegionAt(player.blockPosition(), dim);
 
-                            // 1. Si está dentro de una región de jugador
+                            // Si está dentro de una región de jugador
                             if (pRegion != null) {
                                 if (pRegion.owner.equals(player.getUUID()) || hasAdmin) {
                                     sendPlayerInteractiveMenu(player, pRegion);
@@ -128,7 +128,7 @@ public class ProtectionCommands {
                                 }
                             }
 
-                            // 2. Si no está en protección de jugador pero es Admin (WorldRegion / __global__)
+                            // Si no está en protección de jugador pero es Admin (WorldRegion / __global__)
                             if (hasAdmin) {
                                 WorldRegion wRegion = RegionManager.getWorldRegionAt(player.blockPosition(), dim);
                                 player.sendSystemMessage(Component.literal("§eModificando región de mundo: §6" + wRegion.getName()));
@@ -136,7 +136,7 @@ public class ProtectionCommands {
                                 return 1;
                             }
 
-                            // 3. Jugador común fuera de su zona
+                            // Jugador común fuera de su zona
                             player.sendSystemMessage(Component.literal("§cNo estás dentro de una zona protegida por ti."));
                             return 0;
                         })
@@ -373,8 +373,7 @@ public class ProtectionCommands {
         } else {
             java.util.List<String> memberNames = new java.util.ArrayList<>();
             for (java.util.UUID uuid : region.members) {
-                String name = player.getServer().getProfileCache().get(uuid)
-                        .map(com.mojang.authlib.GameProfile::getName).orElse("Desconocido");
+                String name = AuthDatabase.getNameByUUID(uuid, player.getServer());
                 memberNames.add(name);
             }
             source.sendSuccess(() -> Component.literal("§7Miembros: §f" + String.join(", ", memberNames)), false);
@@ -420,7 +419,7 @@ public class ProtectionCommands {
             String color = value ? "§a[ALLOW]" : "§c[DENY]";
 
             MutableComponent button = Component.literal(color).withStyle(style -> style
-                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/pc _toggleflag " + regionName + " " + flag + " " + opposite))
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/pc _toggleflag \"" + regionName + "\" " + flag + " " + opposite))
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("§eHaz clic para cambiar a " + opposite)))
             );
 

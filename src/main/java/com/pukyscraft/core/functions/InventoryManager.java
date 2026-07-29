@@ -30,21 +30,26 @@ public class InventoryManager {
 
     // INVSEE ONLINE
     public static void openOnlineInv(ServerPlayer admin, ServerPlayer target) {
-        // Un cofre de 6 filas (54 slots) para alojar el inventario + armadura
+
+        boolean[] isReady = {false};
+
         SimpleContainer container = new SimpleContainer(54) {
             @Override
             public void setChanged() {
                 super.setChanged();
-                // Al mover un ítem en el cofre, se sincroniza al instante con el jugador
-                for (int i = 0; i < 36; i++) target.getInventory().setItem(i, this.getItem(i)); // Inventario principal
-                for (int i = 0; i < 4; i++) target.getInventory().armor.set(i, this.getItem(36 + i)); // Armadura
-                target.getInventory().offhand.set(0, this.getItem(40)); // Mano secundaria
+                if (!isReady[0]) return;
+
+                for (int i = 0; i < 36; i++) target.getInventory().setItem(i, this.getItem(i));
+                for (int i = 0; i < 4; i++) target.getInventory().armor.set(i, this.getItem(36 + i));
+                target.getInventory().offhand.set(0, this.getItem(40));
             }
         };
 
         for (int i = 0; i < 36; i++) container.setItem(i, target.getInventory().getItem(i).copy());
         for (int i = 0; i < 4; i++) container.setItem(36 + i, target.getInventory().armor.get(i).copy());
         container.setItem(40, target.getInventory().offhand.get(0).copy());
+
+        isReady[0] = true;
 
         admin.openMenu(new net.minecraft.world.SimpleMenuProvider(
                 (id, playerInv, p) -> ChestMenu.sixRows(id, playerInv, container),
@@ -95,6 +100,7 @@ public class InventoryManager {
         if (session == null) return;
 
         try {
+            ListTag oldInvList = session.nbt.getList("Inventory", 10);
             ListTag newInvList = new ListTag();
             for (int i = 0; i < 54; i++) {
                 ItemStack stack = session.container.getItem(i);
@@ -111,6 +117,14 @@ public class InventoryManager {
                 itemTag.putByte("Slot", slot);
                 stack.save(itemTag);
                 newInvList.add(itemTag);
+            }
+
+            for (int i = 0; i < oldInvList.size(); i++) {
+                CompoundTag itemTag = oldInvList.getCompound(i);
+                byte slot = itemTag.getByte("Slot");
+                if (!((slot >= 0 && slot < 36) || (slot >= 100 && slot < 104) || slot == -106)) {
+                    newInvList.add(itemTag);
+                }
             }
 
             session.nbt.put("Inventory", newInvList);

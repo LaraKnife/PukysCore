@@ -165,4 +165,14 @@ public class AuthDatabase {
         }
         return null;
     }
+
+    public static String getNameByUUID(UUID uuid, net.minecraft.server.MinecraftServer server) {
+        UserData data = users.get(uuid.toString());
+        if (data != null && data.username != null) {
+            return data.username;
+        }
+        return server.getProfileCache().get(uuid)
+                .map(com.mojang.authlib.GameProfile::getName)
+                .orElse("Desconocido");
+    }
 }
