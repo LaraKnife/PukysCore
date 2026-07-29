@@ -4,7 +4,7 @@ license="All rights reserved"
 
 [[mods]]
 modId="pukyscore"
-version="1.0.0"
+version="1.0.1"
 displayName="PukysCore"
 authors="LaraKnife"
 description="Core mod para PukysCraft"
