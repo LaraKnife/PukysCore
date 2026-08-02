@@ -58,15 +58,36 @@ public class AuthEventHandler {
                 return;
             }
 
+            // Usuarios Premium
             if (SecurityManager.isPremium(player)) {
-                boolean isFirstTime = !AuthDatabase.isRegistered(player.getUUID());
+                boolean isRegisteredInPukys = AuthDatabase.isRegistered(player.getUUID());
 
-                if (isFirstTime) {
-                    // Lo registramos silenciosamente con una contraseña aleatoria para saber que ya entró antes y poder contar sus cuentas por IP
+                try {
+                    java.util.UUID offlineUUID = java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + player.getScoreboardName()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+                    java.io.File playerDataDir = player.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_DATA_DIR).toFile();
+                    java.io.File offlineFile = new java.io.File(playerDataDir, offlineUUID + ".dat");
+
+                    if (offlineFile.exists()) {
+                        net.minecraft.nbt.CompoundTag oldData = net.minecraft.nbt.NbtIo.readCompressed(offlineFile);
+                        player.load(oldData);
+
+                        java.io.File migratedFile = new java.io.File(playerDataDir, offlineUUID + ".dat.migrado");
+                        if (migratedFile.exists()) migratedFile.delete(); // Previene errores si ya existía uno previo
+                        offlineFile.renameTo(migratedFile);
+
+                        System.out.println("[PukysCore Auth] ¡Migración de datos exitosa para el usuario premium: " + player.getScoreboardName() + "!");
+                    }
+                } catch (Exception e) {
+                    System.err.println("[PukysCore Auth] Error al intentar migrar los datos de jugador para " + player.getScoreboardName());
+                    e.printStackTrace();
+                }
+
+                if (!isRegisteredInPukys) {
                     AuthDatabase.registerUser(player.getUUID(), player.getScoreboardName(), java.util.UUID.randomUUID().toString(), ip);
                 }
 
-                AuthSessionManager.onPremiumJoin(player, isFirstTime);
+                AuthSessionManager.onPremiumJoin(player, !isRegisteredInPukys);
                 player.sendSystemMessage(Component.literal("§a§l[PukysCore] §fAutenticado automáticamente con cuenta Premium."));
                 return;
             }

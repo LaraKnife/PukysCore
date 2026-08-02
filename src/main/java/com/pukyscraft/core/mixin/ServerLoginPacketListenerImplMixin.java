@@ -62,13 +62,11 @@ public abstract class ServerLoginPacketListenerImplMixin {
     private boolean pukyscore$bypassAuth(MinecraftServer server, ServerboundHelloPacket packet) {
         Boolean isPremium = PremiumCache.get(packet.name());
 
-        if (isPremium == null) isPremium = false;
-
-        if (!isPremium) {
-            return false;
+        if (isPremium != null && isPremium) {
+            return true;
         }
 
-        return server.usesAuthentication();
+        return false;
     }
 
     private boolean checkMojangAPI(String playerName) {
